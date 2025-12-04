@@ -4,21 +4,34 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, MapPin, Leaf, AlertCircle } from "lucide-react";
 import { Link, useParams, Navigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import IngredientCard from "@/components/IngredientCard";
 import ImpactScore from "@/components/ImpactScore";
 import IngredientModal from "@/components/IngredientModal";
-import { products } from "@/data/products";
+import api from "@/services/api";
 import type { Ingredient } from "@/data/products";
 
 const ProductDemo = () => {
   const { productId } = useParams<{ productId: string }>();
-  const product = products.find(p => p.id === productId);
+  const { data: product, isLoading } = useQuery({
+    queryKey: ["product", productId],
+    queryFn: () => productId ? api.getProductById(productId) : undefined,
+    enabled: !!productId,
+  });
   
   const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(null);
 
   // Redirect if product not found
-  if (!product) {
+  if (!isLoading && !product) {
     return <Navigate to="/products" replace />;
+  }
+  
+  if (isLoading || !product) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground">Loading product...</p>
+      </div>
+    );
   }
 
   return (
@@ -158,6 +171,7 @@ const ProductDemo = () => {
       {selectedIngredient && (
         <IngredientModal
           ingredient={selectedIngredient}
+          productId={productId}
           onClose={() => setSelectedIngredient(null)}
         />
       )}

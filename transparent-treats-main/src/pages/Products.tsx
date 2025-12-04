@@ -3,10 +3,15 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, QrCode, MapPin } from "lucide-react";
 import { Link } from "react-router-dom";
-import { products } from "@/data/products";
+import { useQuery } from "@tanstack/react-query";
 import ImpactScore from "@/components/ImpactScore";
+import api from "@/services/api";
 
 const Products = () => {
+  const { data: products = [], isLoading } = useQuery({
+    queryKey: ["products"],
+    queryFn: api.getAllProducts,
+  });
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -30,6 +35,7 @@ const Products = () => {
             Explore our demo products to see how the QR transparency platform works. 
             Click on any product to view its complete ingredient breakdown.
           </p>
+          {isLoading && <p className="text-sm text-muted-foreground mt-4">Loading products...</p>}
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">

@@ -1,9 +1,12 @@
+import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Package, AlertTriangle, ArrowRight } from "lucide-react";
+import api from "@/services/api";
 
 interface IngredientModalProps {
   ingredient: {
+    id?: number;
     name: string;
     percentage: number;
     origin: string;
@@ -14,10 +17,23 @@ interface IngredientModalProps {
     processing: string;
     alternatives: string[];
   };
+  productId?: string;
   onClose: () => void;
 }
 
-const IngredientModal = ({ ingredient, onClose }: IngredientModalProps) => {
+const IngredientModal = ({ ingredient, productId, onClose }: IngredientModalProps) => {
+  // Optional: fetch analysis for this ingredient if productId is provided
+  const { data: analysis } = useQuery({
+    queryKey: ["ingredient-analysis", productId, ingredient.id],
+    queryFn: () =>
+      productId
+        ? api.analyzeIngredients(productId, [ingredient])
+        : Promise.resolve(null),
+    enabled: !!productId,
+  });
+
+  const analysisData = analysis?.ingredients[0];
+
   const getImpactLabel = (impact: string) => {
     switch (impact) {
       case "high":
@@ -56,7 +72,7 @@ const IngredientModal = ({ ingredient, onClose }: IngredientModalProps) => {
           {/* Description */}
           <div>
             <h3 className="font-semibold text-foreground mb-2">What is it?</h3>
-            <p className="text-muted-foreground">{ingredient.description}</p>
+            <p className="text-muted-foreground">{analysisData?.explanation || ingredient.description}</p>
           </div>
 
           {/* Processing */}
@@ -73,10 +89,16 @@ const IngredientModal = ({ ingredient, onClose }: IngredientModalProps) => {
             <div className="p-4 border border-border rounded-lg">
               <h3 className="text-sm font-medium text-muted-foreground mb-2">Health Impact</h3>
               <Badge className={healthImpactData.color}>{healthImpactData.label}</Badge>
+              {analysisData?.healthScore !== undefined && (
+                <p className="text-xs text-muted-foreground mt-2">Score: {analysisData.healthScore}/100</p>
+              )}
             </div>
             <div className="p-4 border border-border rounded-lg">
               <h3 className="text-sm font-medium text-muted-foreground mb-2">Environmental Impact</h3>
               <Badge className={ecoImpactData.color}>{ecoImpactData.label}</Badge>
+              {analysisData?.ecoScore !== undefined && (
+                <p className="text-xs text-muted-foreground mt-2">Score: {analysisData.ecoScore}/100</p>
+              )}
             </div>
           </div>
 
