@@ -5,8 +5,23 @@
  */
 import type { Product, Ingredient } from "@/data/products";
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL as string) || "";
-const USE_REMOTE = (import.meta.env.VITE_USE_REMOTE_API as string) === "true" && !!API_BASE;
+let API_BASE = (import.meta.env.VITE_API_BASE_URL as string) || "";
+let USE_REMOTE = (import.meta.env.VITE_USE_REMOTE_API as string) === "true" && !!API_BASE;
+
+/**
+ * Test helpers: allows tests to override adapter configuration at runtime.
+ * - Use `__setTestConfig` from tests to force `useRemote` and `apiBase` values.
+ * - Use `__resetConfig` to restore values from `import.meta.env`.
+ */
+export function __setTestConfig(cfg: { apiBase?: string; useRemote?: boolean }) {
+  if (typeof cfg.apiBase !== "undefined") API_BASE = cfg.apiBase;
+  if (typeof cfg.useRemote !== "undefined") USE_REMOTE = cfg.useRemote;
+}
+
+export function __resetConfig() {
+  API_BASE = (import.meta.env.VITE_API_BASE_URL as string) || "";
+  USE_REMOTE = (import.meta.env.VITE_USE_REMOTE_API as string) === "true" && !!API_BASE;
+}
 
 async function fetchJson(input: RequestInfo, init?: RequestInit) {
   const controller = new AbortController();

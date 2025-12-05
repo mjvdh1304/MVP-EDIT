@@ -50,17 +50,19 @@ const server = setupServer(
   })
 );
 
-beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
-afterAll(() => server.close());
+beforeAll(() => {
+  // Force adapter to use our mock API base during tests
+  api.__setTestConfig({ apiBase: API_BASE, useRemote: true });
+  server.listen({ onUnhandledRequest: "error" });
+});
+afterAll(() => {
+  server.close();
+  api.__resetConfig();
+});
 
 describe("API Adapter", () => {
   describe("getProductById", () => {
     it("should return a product by id from mock API", async () => {
-      // Mock remote API enabled
-      vi.stubGlobal("import", {
-        meta: { env: { VITE_USE_REMOTE_API: "true", VITE_API_BASE_URL: API_BASE } },
-      });
-
       const product = await api.getProductById("organic-bread");
       expect(product).toBeDefined();
       expect(product?.name).toBe("Organic Whole Grain Bread");
