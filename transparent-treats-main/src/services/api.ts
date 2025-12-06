@@ -27,7 +27,16 @@ async function fetchJson(input: RequestInfo, init?: RequestInit) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
   try {
-    const res = await fetch(input, { signal: controller.signal, ...init });
+    // Attach auth header if token present in localStorage
+    const token = typeof window !== 'undefined' ? localStorage.getItem('tt_token') : null;
+    const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+    const mergedInit: RequestInit = {
+      ...init,
+      headers: { ...(init && (init.headers as Record<string, string>)), ...authHeaders },
+      signal: controller.signal,
+    };
+
+    const res = await fetch(input, mergedInit);
     clearTimeout(timeout);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
@@ -66,6 +75,22 @@ export async function getProductById(id: string): Promise<Product | undefined> {
 
   const mod = await import("@/data/products");
   return mod.products.find((p) => p.id === id);
+}
+
+/** Get product by barcode. Remote endpoint optional — falls back to local dataset. */
+export async function getProductByBarcode(barcode: string): Promise<Product | undefined> {
+  if (USE_REMOTE) {
+    try {
+      const url = `${API_BASE}/api/products/barcode/${encodeURIComponent(barcode)}`;
+      const data = await fetchJson(url);
+      return data as Product;
+    } catch (e) {
+      // fall back to local
+    }
+  }
+
+  const mod = await import("@/data/products");
+  return mod.products.find((p) => (p as any).barcode === barcode);
 }
 
 /** Analyze ingredients: returns per-ingredient explanations and scores.
@@ -127,6 +152,76 @@ export async function analyzeIngredients(
     aggregateScores: agg,
     generatedAt: new Date().toISOString(),
   };
+}
+
+// --- Authentication helpers (simple client-side token store) ---
+export async function login(email: string, password: string): Promise<{ token: string; refreshToken?: string } | null> {
+  if (!API_BASE || !USE_REMOTE) return null;
+  try {
+    const res = await fetchJson(`${API_BASE}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    if (res?.token) {
+      try { localStorage.setItem('tt_token', res.token); } catch {}
+      try { if (res.refreshToken) localStorage.setItem('tt_refreshToken', res.refreshToken); } catch {}
+      return { token: res.token, refreshToken: res.refreshToken };
+    }
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
+export function logout(): void {
+  try { localStorage.removeItem('tt_token'); } catch {}
+  try { localStorage.removeItem('tt_refreshToken'); } catch {}
+}
+
+export async function register(email: string, password: string, name: string): Promise<boolean> {
+  if (!API_BASE || !USE_REMOTE) return false;
+  try {
+    const res = await fetchJson(`${API_BASE}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, name }),
+    });
+    return !!res?.userId;
+  } catch (e) {
+    return false;
+  }
+}
+
+// --- Product submission endpoints ---
+export async function submitProduct(payload: any): Promise<{ submissionId?: string; status?: string; message?: string }> {
+  if (USE_REMOTE) {
+    try {
+      const res = await fetchJson(`${API_BASE}/api/products/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      return res;
+    } catch (e) {
+      // allow fallback below
+    }
+  }
+
+  // Local fallback: return a fake pending submission
+  return { submissionId: `local-${Date.now()}`, status: 'pending_review', message: 'Local fallback: submission queued' };
+}
+
+export async function getMySubmissions(): Promise<any[]> {
+  if (USE_REMOTE) {
+    try {
+      const res = await fetchJson(`${API_BASE}/api/products/my-submissions`);
+      return Array.isArray(res) ? res : [];
+    } catch (e) {
+      return [];
+    }
+  }
+  return [];
 }
 
 /** Get user profile; remote only when enabled, returns null if not found. */
