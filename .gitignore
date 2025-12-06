@@ -1,0 +1,14 @@
+# Node modules
+/transparent-treats-main/node_modules/
+/backend/node_modules/
+
+# Local build and logs
+/tmp/
+/dist/
+
+# Environment files
+.env
+
+# VSCode
+.vscode/
+
