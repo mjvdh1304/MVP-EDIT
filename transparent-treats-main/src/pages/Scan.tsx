@@ -17,8 +17,28 @@ const ScanPage: React.FC = () => {
       const product = await api.getProductByBarcode(code);
       if (product) {
         const id = (product as any).id;
-        if (id) {
+        const isExternal = (product as any).isExternal;
+        
+        if (id && !isExternal) {
+          // Product exists in our database
           navigate(`/product/${encodeURIComponent(id)}`);
+        } else if (isExternal) {
+          // Product found in external database (Open Food Facts)
+          setMessage(`✓ Found in Open Food Facts: ${(product as any).name}`);
+          navigate('/submit', { 
+            state: { 
+              barcode: code, 
+              prefillData: {
+                name: (product as any).name,
+                brand: (product as any).brand,
+                category: (product as any).category,
+                ingredients: (product as any).ingredients,
+                certifications: (product as any).certifications,
+                nutritionFacts: (product as any).nutritionFacts,
+              },
+              isFromExternalDB: true,
+            } 
+          });
         } else {
           navigate('/submit', { state: { barcode: code, product } });
         }
@@ -37,8 +57,29 @@ const ScanPage: React.FC = () => {
       const product = await api.getProductByBarcode(manual);
       if (product) {
         const id = (product as any).id;
-        if (id) navigate(`/product/${encodeURIComponent(id)}`);
-        else navigate('/submit', { state: { barcode: manual, product } });
+        const isExternal = (product as any).isExternal;
+        
+        if (id && !isExternal) {
+          navigate(`/product/${encodeURIComponent(id)}`);
+        } else if (isExternal) {
+          setMessage(`✓ Found in Open Food Facts: ${(product as any).name}`);
+          navigate('/submit', { 
+            state: { 
+              barcode: manual, 
+              prefillData: {
+                name: (product as any).name,
+                brand: (product as any).brand,
+                category: (product as any).category,
+                ingredients: (product as any).ingredients,
+                certifications: (product as any).certifications,
+                nutritionFacts: (product as any).nutritionFacts,
+              },
+              isFromExternalDB: true,
+            } 
+          });
+        } else {
+          navigate('/submit', { state: { barcode: manual, product } });
+        }
       } else {
         navigate('/submit', { state: { barcode: manual } });
       }

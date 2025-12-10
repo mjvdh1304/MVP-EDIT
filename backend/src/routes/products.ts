@@ -4,6 +4,7 @@ import { createSubmission, getUserSubmissions, getProductById, getProductByBarco
 import { authMiddleware } from '../middleware/auth.js';
 import { createRateLimiter } from '../middleware/rateLimit.js';
 import { ValidationError, NotFoundError } from '../middleware/errorHandler.js';
+import { fetchProductByBarcode } from '../services/openFoodFacts.js';
 
 const router = Router();
 const submitRateLimiter = createRateLimiter(5); // 5 submissions per day
@@ -30,15 +31,33 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction): Prom
   }
 });
 
-// Lookup by barcode (public)
+// Lookup by barcode (public) - checks local DB first, then Open Food Facts
 router.get('/barcode/:barcode', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const barcode = req.params.barcode;
-    const product = await getProductByBarcode(barcode);
+    
+    // First, try to find in our local database
+    let product = await getProductByBarcode(barcode);
+    
+    // If not found locally, try Open Food Facts
     if (!product) {
+      console.log(`Product ${barcode} not in local DB, fetching from Open Food Facts...`);
+      const externalProduct = await fetchProductByBarcode(barcode);
+      
+      if (externalProduct) {
+        // Return external product data with a flag indicating it's not in our DB
+        res.json({
+          ...externalProduct,
+          isExternal: true,
+          message: 'Product found in Open Food Facts database. You can submit additional information to improve this entry.',
+        });
+        return;
+      }
+      
       throw new NotFoundError('Product not found for barcode');
     }
-    res.json(product);
+    
+    res.json({ ...product, isExternal: false });
   } catch (error) {
     next(error);
   }
